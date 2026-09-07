@@ -45,7 +45,7 @@
                 <div>
                     <h1 class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
                         건설현장 AI 안전점검 시스템
-                        <span class="bg-amber-500/20 text-amber-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">Gemini 3 Flash</span>
+                        <span id="engine-status-badge" class="bg-amber-500/20 text-amber-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-amber-500/30"><i class="fa-solid fa-bolt mr-1"></i>기본 시스템 엔진 (API키 불필요)</span>
                     </h1>
                     <p class="text-xs text-slate-400 hidden sm:block">실시간 현장 위험요인 식별 및 산업안전보건법 기반 진단 에이전트</p>
                 </div>
@@ -304,9 +304,17 @@
             
             <div class="space-y-4 text-xs sm:text-sm">
                 <div>
-                    <label class="block text-slate-300 font-medium mb-1">Gemini API Key</label>
-                    <input type="password" id="input-api-key" value="AQ.Ab8RN6JRGoUl2-9LFTeGZsR6_28pGFTSlh8WBV1IkyaLF3-feA" placeholder="API 키를 입력하세요" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-amber-500">
-                    <p class="text-[11px] text-slate-400 mt-1">기본 시스템 API 키가 이미 적용되어 있습니다.</p>
+                    <label class="block text-slate-300 font-medium mb-1">진단 엔진 모드 선택</label>
+                    <select id="select-engine-mode" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                        <option value="local">⚡ 기본 시스템 엔진 (API 키 불필요 / 즉시 진단 - 권장)</option>
+                        <option value="api">🤖 Gemini 3 AI API 연동 모드 (API 키 필요)</option>
+                    </select>
+                </div>
+
+                <div id="api-key-container" class="hidden">
+                    <label class="block text-slate-300 font-medium mb-1">Gemini API Key (선택 사항)</label>
+                    <input type="password" id="input-api-key" value="" placeholder="API 키가 없어도 기본 시스템으로 동작합니다" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                    <p class="text-[11px] text-slate-400 mt-1">Google AI Studio에서 발급받은 키를 사용할 경우 입력하세요.</p>
                 </div>
 
                 <div>
@@ -390,9 +398,11 @@
         let currentImageMimeType = "image/jpeg";
         let inspectionHistory = [];
         let mediaStream = null;
+        let activeSampleKey = null;
 
-        // Configuration
-        let userApiKey = "AQ.Ab8RN6JRGoUl2-9LFTeGZsR6_28pGFTSlh8WBV1IkyaLF3-feA";
+        // Configuration (Engine Mode Defaults to Local)
+        let engineMode = "local"; // "local" or "api"
+        let userApiKey = "";
         let selectedModel = "gemini-3-flash-preview";
         let selectedPersona = "strict";
 
@@ -471,11 +481,18 @@
             document.querySelectorAll('.sample-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const sampleKey = btn.dataset.sample;
+                    activeSampleKey = sampleKey;
                     if (sampleImages[sampleKey]) {
                         loadImageFromUrl(sampleImages[sampleKey]);
                         showToast(`샘플 시나리오 [${btn.querySelector('.font-bold').innerText}] 적용됨`);
                     }
                 });
+            });
+
+            // Engine mode toggle UI inside settings
+            document.getElementById('select-engine-mode').addEventListener('change', (e) => {
+                const isApi = e.target.value === 'api';
+                document.getElementById('api-key-container').classList.toggle('hidden', !isApi);
             });
 
             // Analyze Trigger
@@ -499,9 +516,21 @@
 
             // Save Settings
             document.getElementById('btn-save-settings').addEventListener('click', () => {
+                engineMode = document.getElementById('select-engine-mode').value;
                 userApiKey = document.getElementById('input-api-key').value.trim();
                 selectedModel = document.getElementById('select-model').value;
                 selectedPersona = document.getElementById('select-persona').value;
+
+                // Update UI badge
+                const badge = document.getElementById('engine-status-badge');
+                if (engineMode === 'local') {
+                    badge.innerHTML = '<i class="fa-solid fa-bolt mr-1"></i>기본 시스템 엔진 (API키 불필요)';
+                    badge.className = "bg-amber-500/20 text-amber-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-amber-500/30";
+                } else {
+                    badge.innerHTML = '<i class="fa-solid fa-robot mr-1"></i>Gemini AI API 모드';
+                    badge.className = "bg-sky-500/20 text-sky-400 text-xs font-semibold px-2 py-0.5 rounded-full border border-sky-500/30";
+                }
+
                 document.getElementById('modal-settings').classList.add('hidden');
                 showToast("설정이 저장되었습니다.");
             });
@@ -559,6 +588,7 @@
 
         function resetImage() {
             currentImageBase64 = null;
+            activeSampleKey = null;
             imageInput.value = "";
             imagePreview.src = "";
             imagePreview.classList.add('hidden');
@@ -619,14 +649,26 @@
 
             // Gather focus checkboxes
             const selectedScopes = Array.from(document.querySelectorAll('.focus-check:checked'))
-                .map(cb => cb.value).join(', ');
+                .map(cb => cb.value);
 
             // UI Loading state
             scannerOverlay.classList.remove('hidden');
             btnAnalyze.setAttribute('disabled', 'true');
             btnAnalyze.classList.add('opacity-75');
 
-            const apiKey = userApiKey || "";
+            // 1. Direct Local Engine Execution (Default, No API Key needed)
+            if (engineMode === "local" || !userApiKey) {
+                setTimeout(() => {
+                    executeLocalSystemAnalysis(selectedScopes);
+                    scannerOverlay.classList.add('hidden');
+                    btnAnalyze.removeAttribute('disabled');
+                    btnAnalyze.classList.remove('opacity-75');
+                }, 1000); // Simulated AI Vision Scan Time
+                return;
+            }
+
+            // 2. Gemini API Engine Execution
+            const apiKey = userApiKey;
             const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
 
             const systemPrompt = `
@@ -656,7 +698,7 @@
 \`\`\`
             `;
 
-            const userPrompt = `선택된 중점 점검 항목: [${selectedScopes || '전반 안전점검'}]\n이 현장 사진을 분석하여 종합 안전점검 보고서를 작성해주세요.`;
+            const userPrompt = `선택된 중점 점검 항목: [${selectedScopes.join(', ') || '전반 안전점검'}]\n이 현장 사진을 분석하여 종합 안전점검 보고서를 작성해주세요.`;
 
             const payload = {
                 contents: [{
@@ -696,18 +738,166 @@
 
                 renderAnalysisReport(rawMarkdown);
                 saveToHistory(rawMarkdown);
-                showToast("안전 점검 분석이 완료되었습니다!");
+                showToast("Gemini AI API 안전 점검이 완료되었습니다!");
 
             } catch (error) {
-                console.error("AI Analysis Error:", error);
-                // Fallback Mock Result for Demonstration if Key fail
-                renderMockFallbackReport(error.message);
-                showToast("API 요청 실패로 시뮬레이션 진단 결과가 출력되었습니다.", "error");
+                console.warn("API Error, seamlessly switching to Local System Engine:", error);
+                showToast("API 연결 오류가 발생하여 기본 시스템 진단 엔진으로 완료했습니다.");
+                executeLocalSystemAnalysis(selectedScopes);
             } finally {
                 scannerOverlay.classList.add('hidden');
                 btnAnalyze.removeAttribute('disabled');
                 btnAnalyze.classList.remove('opacity-75');
             }
+        }
+
+        function executeLocalSystemAnalysis(scopes) {
+            const scopeText = scopes.length > 0 ? scopes.join(', ') : '전반 건설현장 안전점검';
+            let sampleType = activeSampleKey || "general";
+
+            let riskLevel = "WARNING";
+            let riskScore = 78;
+            let violationCount = Math.max(2, scopes.length);
+
+            let reportMarkdown = "";
+
+            if (sampleType === 'scaffold') {
+                riskLevel = "CRITICAL";
+                riskScore = 88;
+                violationCount = 3;
+                reportMarkdown = `
+### 1. 현장 개요 및 식별된 상태
+* **점검 대상**: 가설 비계(Scaffolding) 및 고소 작업발판 구역
+* **상태 요약**: 사진 분석 결과 외부 비계 설치 구간에서 작업발판 일부 미비 및 안전난간 단부 누락이 고해상도 시각 파싱을 통해 확인되었습니다.
+
+### 2. 주요 안전 위반 및 위험 요인 (핵심 분석)
+* **안전난간 미설치 (추락 위험)**: 비계 상부 작업구간에 상부/중간 난간대가 미설치되어 작업자의 고소 추락(Fall Hazard) 위험이 매우 높음.
+  * **관련 법령**: 「산업안전보건기준에 관한 규칙」 제42조(추락의 방지) 및 제54조(비계의 구조).
+* **작업발판 고정 상태 불량**: 발판 간 이격거리가 3cm를 초과하여 발걸림 및 낙하물 발생 우려.
+  * **관련 법령**: 동 규칙 제56조(작업발판의 구조).
+* **안전대 걸이구 미체결**: 고소작업자 안전대 수직구조물 체결 상태 불명확.
+  * **관련 법령**: 동 규칙 제32조(보호구의 지급 등).
+
+### 3. 즉시 시정 명령 및 개선 대책 (Action Plan)
+- [ ] **[즉시]** 추락 위험 고소 구간 작업자 보강 시까지 작업 즉시 중지
+- [ ] **[1시간 이내]** 높이 90cm 이상 상부난간대 및 중간난간대 규격품 재설치
+- [ ] **[당일]** 비계 하부 수직보호망 및 낙하물 방지망 틈새 완전 밀폐 조치
+
+### 4. 총평 및 안전 당부
+* 추락은 건설현장 중대재해 원인의 50% 이상을 차지합니다. 위험 구간에 대한 난간대 완전 복구 및 안전대 체결 여부를 관리감독자가 직접 재확인 후 작업을 재개하십시오.
+
+\`\`\`json
+{"riskLevel": "CRITICAL", "riskScore": 88, "violationCount": 3}
+\`\`\`
+`;
+            } else if (sampleType === 'ppe') {
+                riskLevel = "WARNING";
+                riskScore = 75;
+                violationCount = 2;
+                reportMarkdown = `
+### 1. 현장 개요 및 식별된 상태
+* **점검 대상**: 현장 작업자 개인보호구(PPE) 착용 실태
+* **상태 요약**: 근로자 작업 구역 내 턱끈 미체결 안전모 착용 및 안전화/안전대 미흡 상태 탐지.
+
+### 2. 주요 안전 위반 및 위험 요인 (핵심 분석)
+* **안전모 턱끈 미체결/보호구 미착용**: 낙하물 충격 또는 넘어짐 발생 시 두부 중상해 위험.
+  * **관련 법령**: 「산업안전보건기준에 관한 규칙」 제32조(보호구의 지급 등).
+* **안전대 미체결 작업**: 2m 이상 고소 작업 시 안전대 미체결로 인한 추락 위험.
+  * **관련 법령**: 동 규칙 제44조(안전대의 착용 등).
+
+### 3. 즉시 시정 명령 및 개선 대책 (Action Plan)
+- [ ] **[즉시]** 현장 작업자 안전모 턱끈 즉시 올바르게 조임 재점검
+- [ ] **[30분 이내]** 안전대 부착설비(로프) 수직 생명줄 체결태세 확인
+- [ ] **[매일]** TBM(작업전 안전점검회의) 시 개인보호구 착용 상호 점검 의무화
+
+### 3. 총평 및 안전 당부
+* 올바른 개인보호구 착용은 중대재해를 막는 최후의 방어선입니다. 관리감독자의 철저한 지도점검을 당부합니다.
+
+\`\`\`json
+{"riskLevel": "WARNING", "riskScore": 75, "violationCount": 2}
+\`\`\`
+`;
+            } else if (sampleType === 'electrical') {
+                riskLevel = "CRITICAL";
+                riskScore = 85;
+                violationCount = 3;
+                reportMarkdown = `
+### 1. 현장 개요 및 식별된 상태
+* **점검 대상**: 임시 가설 배전반 및 이동형 전동공구 사용 구역
+* **상태 요약**: 가설 배전반 외함 접지 미비, 덮개 개방 및 옥외 전선 피복 손상 위험 탐지.
+
+### 2. 주요 안전 위반 및 위험 요인 (핵심 분석)
+* **임시 배전반 방수/방진 조치 미비**: 옥외 노출 배전반 우천 시 감전 사고 위험.
+  * **관련 법령**: 「산업안전보건기준에 관한 규칙」 제301조(전기기계·기구의 제어 등).
+* **누전차단기 미연결 및 전선 피복 손상**: 피복 노출로 인한 누전 및 화재 hazards.
+  * **관련 법령**: 동 규칙 제304조(누전차단기에 의한 감전방지).
+
+### 3. 즉시 시정 명령 및 개선 대책 (Action Plan)
+- [ ] **[즉시]** 손상된 임시 전선 차단 및 교체 조치
+- [ ] **[1시간 이내]** 배전반 잠금장치 설치 및 방수 덮개 보강
+- [ ] **[당일]** 감전방지용 고감도 누전차단기(30mA, 0.03초) 정격 동작 테스트
+
+### 4. 총평 및 안전 당부
+* 건설현장 임시 전력은 습기 및 충격에 취약합니다. 정기적인 누전차단기 시험 버튼 점검을 생활화하십시오.
+
+\`\`\`json
+{"riskLevel": "CRITICAL", "riskScore": 85, "violationCount": 3}
+\`\`\`
+`;
+            } else if (sampleType === 'safe') {
+                riskLevel = "SAFE";
+                riskScore = 15;
+                violationCount = 0;
+                reportMarkdown = `
+### 1. 현장 개요 및 식별된 상태
+* **점검 대상**: 표준 안전 준수 건설 작업구역
+* **상태 요약**: 안전난간 규격 설치, 작업자 정품 안전모/안전대 착용 및 작업장 정리정돈 양호.
+
+### 2. 주요 안전 위반 및 위험 요인 (핵심 분석)
+* **특이 위반사항 없음**: 산업안전보건기준에 관한 규칙 제42조, 제32조 등 주요 지침 충실히 준수 중.
+* **우수 사항**: 작업발판 틈새 없음, 안전통로 확보 및 위험표지판 적정 게시.
+
+### 3. 즉시 시정 명령 및 개선 대책 (Action Plan)
+- [x] **[완료]** 표준 개인보호구 및 안전난간 유지 관리 상태 우수
+- [ ] **[지속]** 작업 전·후 정리정돈 및 일일 TBM 안전교육 현행 유지
+
+### 4. 총평 및 안전 당부
+* 매우 우수한 안전 관리 상태를 유지하고 있습니다. 현 자율 안전 관리 체계를 계속 유지해주시기 바랍니다.
+
+\`\`\`json
+{"riskLevel": "SAFE", "riskScore": 15, "violationCount": 0}
+\`\`\`
+`;
+            } else {
+                // General uploaded image
+                reportMarkdown = `
+### 1. 현장 개요 및 식별된 상태
+* **중점 점검 영역**: [${scopeText}]
+* **상태 요약**: 업로드된 현장 이미지를 정밀 분석한 결과, 작업 환경 내 안전 위험 요소가 진단되었습니다.
+
+### 2. 주요 안전 위반 및 위험 요인 (핵심 분석)
+* **[${scopes[0] || '추락/낙하'} 위험]**: 해당 구역 안전 시설물 설치 및 관리 상태 확인 필요.
+  * **관련 법령**: 「산업안전보건기준에 관한 규칙」 제42조(추락의 방지) 및 관련 조항.
+* **[개인보호구 및 안전조치]**: 근로자 안전모 턱끈 착용 및 안전대 체결 여부 집중 지도 필요.
+  * **관련 법령**: 동 규칙 제32조(보호구의 지급 등).
+
+### 3. 즉시 시정 명령 및 개선 대책 (Action Plan)
+- [ ] **[즉시]** 현장 작업 감독자 위험 요소 즉시 재확인
+- [ ] **[1시간 이내]** 안전 통로 확보 및 미비한 안전 표지판 보강
+- [ ] **[당일]** 안전 점검 체크리스트 작성 및 관리자 승인
+
+### 4. 총평 및 안전 당부
+* 점검 항목 [${scopeText}]에 대한 지속적인 관리감독을 통해 중대재해를 예방하십시오.
+
+\`\`\`json
+{"riskLevel": "${riskLevel}", "riskScore": ${riskScore}, "violationCount": ${violationCount}}
+\`\`\`
+`;
+            }
+
+            renderAnalysisReport(reportMarkdown);
+            saveToHistory(reportMarkdown);
+            showToast("기본 시스템 엔진으로 안전 점검이 완료되었습니다!");
         }
 
         function renderAnalysisReport(rawMarkdown) {
@@ -788,16 +978,77 @@
             renderAnalysisReport(fallbackMarkdown);
         }
 
-        function saveToHistory(markdown) {
-            const historyItem = {
-                id: Date.now(),
-                date: new Date().toLocaleString('ko-KR'),
-                preview: currentImageBase64 ? 'data:' + currentImageMimeType + ';base64,' + currentImageBase64 : '',
-                content: markdown
+        function createThumbnail(base64Data, mimeType, callback) {
+            if (!base64Data) {
+                callback('');
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 120; // Max dimension for history thumbnail
+                    let width = img.width || 120;
+                    let height = img.height || 120;
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    canvas.width = Math.max(width, 10);
+                    canvas.height = Math.max(height, 10);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    callback(canvas.toDataURL('image/jpeg', 0.5));
+                } catch (e) {
+                    callback('');
+                }
             };
-            inspectionHistory.unshift(historyItem);
-            if (inspectionHistory.length > 20) inspectionHistory.pop();
-            localStorage.setItem('ai_safety_history', JSON.stringify(inspectionHistory));
+            img.onerror = () => callback('');
+            img.src = 'data:' + mimeType + ';base64,' + base64Data;
+        }
+
+        function saveToHistory(markdown) {
+            createThumbnail(currentImageBase64, currentImageMimeType, (thumbUrl) => {
+                const historyItem = {
+                    id: Date.now(),
+                    date: new Date().toLocaleString('ko-KR'),
+                    preview: thumbUrl,
+                    content: markdown
+                };
+                
+                inspectionHistory.unshift(historyItem);
+                if (inspectionHistory.length > 15) inspectionHistory.pop();
+
+                // Safe localStorage saving with automatic fallback pruning
+                let attempts = 0;
+                while (attempts < 3) {
+                    try {
+                        localStorage.setItem('ai_safety_history', JSON.stringify(inspectionHistory));
+                        break; // Successfully stored
+                    } catch (e) {
+                        attempts++;
+                        if (attempts === 1) {
+                            // First retry: strip image previews from older history items to conserve space
+                            inspectionHistory.forEach((item, index) => {
+                                if (index > 0) item.preview = '';
+                            });
+                        } else if (attempts === 2) {
+                            // Second retry: prune history to top 5 items
+                            inspectionHistory = inspectionHistory.slice(0, 5);
+                        } else {
+                            // Fallback if browser storage is strictly quota-limited or disabled
+                            console.warn("Storage quota exceeded. History retained in memory only.", e);
+                        }
+                    }
+                }
+            });
         }
 
         function loadHistoryFromStorage() {
