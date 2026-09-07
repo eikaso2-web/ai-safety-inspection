@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 건설현장 안전보건 플랫폼</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Pretendard & Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* 프린트 스타일 최적화 */
+        @media print {
+            body {
+                background-color: white;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-area {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 상단 헤더 (no-print) -->
+    <header class="bg-slate-900 text-white shadow-md no-print sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <!-- 헬멧 아이콘 (SVG) -->
+                <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"></path>
+                </svg>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">AI 안전보건관리 에이전트</h1>
+                    <p class="text-xs text-slate-400">모바일 현장점검 및 실시간 AI 사진 분석 시스템</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <span class="text-xs text-slate-400 mr-2 hidden lg:inline">현장 촬영 사진을 업로드해 보세요</span>
+                <button onclick="window.print()" class="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    PDF 저장 / 인쇄하기
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 대시보드 구조 -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 왼쪽 컨트롤러 및 유틸리티 영역 (no-print) -->
+        <section class="lg:col-span-5 space-y-6 no-print">
+            
+            <!-- 1. 사진 촬영 및 파일 업로드 (자동 압축 포함) -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs">1</span>
+                    현장 사진 첨부 및 압축
+                </h2>
+                
+                <div class="space-y-4">
+                    <!-- 드래그앤드롭 영역 -->
+                    <label for="image-upload" class="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-amber-50/20 transition-all group">
+                        <input id="image-upload" type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)" />
+                        <svg class="w-10 h-10 text-slate-400 group-hover:text-amber-500 transition-colors mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 00-2 2z"></path>
+                        </svg>
+                        <span class="text-sm font-medium text-slate-700">모바일 카메라 촬영 또는 이미지 선택</span>
+                        <span class="text-xs text-slate-400 mt-1">파일 업로드 시 자동 이미지 초고속 압축 적용</span>
+                    </label>
+
+                    <!-- 이미지 압축 정보 표시 -->
+                    <div id="compression-info" class="hidden bg-slate-50 border border-slate-150 rounded-lg p-3 text-xs text-slate-600 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                            <span>이미지 자동 최적화 완료</span>
+                        </div>
+                        <div class="text-right">
+                            <span id="orig-size" class="line-through text-slate-400 mr-1"></span>
+                            <span id="compressed-size" class="font-bold text-slate-800"></span>
+                        </div>
+                    </div>
+
+                    <!-- 이미지 프리뷰 -->
+                    <div id="image-preview-container" class="hidden relative rounded-xl overflow-hidden border border-slate-200">
+                        <img id="image-preview" src="#" alt="미리보기" class="w-full h-48 object-cover" />
+                        <button onclick="removeImage()" class="absolute top-2 right-2 p-1.5 bg-slate-900/80 hover:bg-red-600 text-white rounded-full transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- AI 분석 버튼 -->
+                    <button id="btn-analyze" onclick="analyzeConstructionSite()" disabled class="w-full py-3 px-4 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-xl transition-all flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span id="analyze-btn-text">사진 올리고 AI 분석하기</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. 위험성 평가(Risk Matrix) 계산기 -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center justify-between">
+                    <span class="flex items-center gap-2">
+                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs">2</span>
+                        위험성 수준 자가진단 (Risk Matrix)
+                    </span>
+                    <span id="risk-score-badge" class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold">등급 미정</span>
+                </h3>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- 빈도 (Likelihood) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">발생 빈도 (1~5)</label>
+                        <select id="risk-likelihood" onchange="calculateRisk()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-amber-500">
+                            <option value="1">1등급 (극히 드묾)</option>
+                            <option value="2">2등급 (드물게 발생)</option>
+                            <option value="3" selected>3등급 (보통 수준)</option>
+                            <option value="4">4등급 (자주 발생)</option>
+                            <option value="5">5등급 (매우 높은 확률)</option>
+                        </select>
+                    </div>
+                    <!-- 강도 (Severity) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">예상 강도 (1~5)</label>
+                        <select id="risk-severity" onchange="calculateRisk()" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-amber-500">
+                            <option value="1">1등급 (경미한 상해)</option>
+                            <option value="2">2등급 (치료 불필요 상해)</option>
+                            <option value="3" selected>3등급 (의료 치료 필요)</option>
+                            <option value="4">4등급 (중대재해 우려)</option>
+                            <option value="5">5등급 (사망 등 치명상)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 실시간 매트릭스 도식 안내 -->
+                <div class="mt-3 p-3 bg-amber-50/50 rounded-lg border border-amber-100 flex items-center gap-3">
+                    <div id="risk-color-indicator" class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-sm">9</div>
+                    <div class="text-xs">
+                        <p class="font-bold text-slate-800" id="risk-result-text">보통 위험 (경계 필요)</p>
+                        <p class="text-slate-500 mt-0.5">상시 모니터링 및 주기적 예방조치 수행 필요</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 보건/안전 관리자 데일리 체크리스트 -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs">3</span>
+                        안전보건 규칙 긴급 체크리스트
+                    </h3>
+                </div>
+                <div class="space-y-2 text-sm text-slate-700 max-h-48 overflow-y-auto pr-1">
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="mt-0.5 rounded text-amber-500 focus:ring-amber-500" />
+                        <span>안전모, 안전화 등 보호구 필수 착용 상태 여부</span>
+                    </label>
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="mt-0.5 rounded text-amber-500 focus:ring-amber-500" />
+                        <span>개구부 덮개 밀폐 및 방호울타리 설치 확인</span>
+                    </label>
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="mt-0.5 rounded text-amber-500 focus:ring-amber-500" />
+                        <span>밀폐공간 산소농도 사전 측정 및 송풍기 작동 여부</span>
+                    </label>
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="mt-0.5 rounded text-amber-500 focus:ring-amber-500" />
+                        <span>혹서기/혹한기 근로자 보건용 휴게 공간 및 식수 확보</span>
+                    </label>
+                    <label class="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <input type="checkbox" class="mt-0.5 rounded text-amber-500 focus:ring-amber-500" />
+                        <span>비상연락망 정비 및 비상구 장애물 즉시 제거</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- 오른쪽 보고서 양식 영역 (인쇄 시 이 부분만 최대 출력되도록 설정) -->
+        <section class="lg:col-span-7 bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 print-area">
+            
+            <!-- 보고서 문서 헤더 -->
+            <div class="border-b-2 border-slate-900 pb-5 text-center relative">
+                <div class="absolute top-0 right-0 text-xs font-bold px-2 py-1 border-2 border-red-500 text-red-500 uppercase tracking-widest rounded no-print">원격점검</div>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">현장 안전보건 상태 점검보고서</h2>
+                <p class="text-sm text-slate-500 mt-1.5 font-medium">산업안전보건법 시행규칙 제32조에 따른 상시 점검기록 양식</p>
+            </div>
+
+            <!-- 보고서 작성자 정보 및 메타데이터 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-3 border-b border-slate-200 py-5 text-sm">
+                <div>
+                    <label class="block text-slate-400 font-bold text-xs uppercase tracking-wider mb-0.5">점검 일시</label>
+                    <input type="date" id="report-date" class="font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-slate-800 outline-none w-full" />
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-xs uppercase tracking-wider mb-0.5">점검자명</label>
+                    <input type="text" id="report-inspector" value="홍길동 안전관리자" class="font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-slate-800 outline-none w-full" />
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-xs uppercase tracking-wider mb-0.5">대상 현장</label>
+                    <input type="text" id="report-location" value="A지구 복합시설 현장" class="font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-slate-800 outline-none w-full" />
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-bold text-xs uppercase tracking-wider mb-0.5">현장 날씨</label>
+                    <select id="report-weather" class="font-semibold text-slate-800 bg-transparent border-b border-dashed border-slate-300 focus:border-slate-800 outline-none w-full">
+                        <option value="맑음">맑음 ☀️</option>
+                        <option value="흐림">흐림 ☁️</option>
+                        <option value="비">강우 🌧️</option>
+                        <option value="눈">강설 ❄️</option>
+                        <option value="기타">기타 기상</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 보고서 점검 내용 입력 폼 -->
+            <div class="mt-6 space-y-5">
+                <!-- 현장 상황 이미지 배치 -->
+                <div>
+                    <span class="block text-xs font-extrabold text-slate-500 mb-2 uppercase tracking-wide">점검 부위 전경 사진 (현장 촬영본)</span>
+                    <div class="w-full bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center min-h-[220px] max-h-[300px] relative">
+                        <img id="form-image-preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>" alt="현장 사진 첨부" class="max-w-full max-h-[300px] object-contain" />
+                        <div id="form-image-placeholder-text" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/40 backdrop-blur-[1px] p-4 text-center pointer-events-none">
+                            <p class="text-sm font-bold text-slate-500">좌측 컨트롤러에서 이미지 업로드 시</p>
+                            <p class="text-xs text-slate-400 mt-1">이곳에 고화질 최적화 사진이 보고서용으로 자동 배치됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. 점검 결과 핵심 분석 타이틀 -->
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">1. 점검 및 발견된 주요 이상 징후 (위험 요인)</label>
+                    <input type="text" id="form-hazard-title" placeholder="안전보건 점검을 수행하거나 AI 사진 분석 기능을 이용해 내용을 자동 생성하세요." class="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-2.5 outline-none" />
+                </div>
+
+                <!-- 2. 위해 위험 요인 상세 상황 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">2. 현 위험요인 세부 설명</label>
+                        <textarea id="form-hazard-description" rows="4" placeholder="발견된 위험 수준 및 물리적 환경 상태를 구체적으로 작성해 주세요." class="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-3 outline-none resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">3. 산업안전보건 기준 법규 준수 검토</label>
+                        <textarea id="form-legal-violation" rows="4" placeholder="산업안전보건기준에 관한 규칙 상의 주요 의무 위반 항목 검토 사항을 상세히 작성해 주세요." class="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-3 outline-none resize-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- 3. 시정 조치 및 현장 대응 조치방안 -->
+                <div>
+                    <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">4. 위험 제거를 위한 시정 지시사항 및 개선 대책</label>
+                    <textarea id="form-corrective-action" rows="3" placeholder="지체 없이 현장에서 집행해야 하는 즉각 시정 방안 및 향후 동일 안전 보건 재발 방지 대책에 관해 서술합니다." class="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-3 outline-none resize-none"></textarea>
+                </div>
+
+                <!-- 4. 위험 수준 종합 검토 -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">위험 카테고리</label>
+                        <select id="form-hazard-category" class="w-full text-sm bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-2.5 outline-none">
+                            <option value="추락 (떨어짐)">추락 (떨어짐)</option>
+                            <option value="낙하·비래 (맞음)">낙하·비래 (맞음)</option>
+                            <option value="붕괴·도괴 (무너짐)">붕괴·도괴 (무너짐)</option>
+                            <option value="협착·끼임">협착·끼임</option>
+                            <option value="질식·중독 (공기질)">질식·중독 (공기질)</option>
+                            <option value="전도·감전">전도·감전</option>
+                            <option value="기타 유해환경">기타 유해환경</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">최종 판단 위험도</label>
+                        <input type="text" id="form-risk-level" readonly class="w-full text-sm font-bold bg-slate-100 border border-slate-200 rounded-lg p-2.5 outline-none text-slate-700" value="보통 위험 (9점)" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-500 mb-1 uppercase tracking-wide">시정 요구 긴급성</label>
+                        <select id="form-urgency" class="w-full text-sm bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-800 rounded-lg p-2.5 outline-none font-bold">
+                            <option value="즉각 조치 (24시간 내)">즉각 조치 🚨</option>
+                            <option value="주의/개선 권고">주의/개선 권고 ⚠️</option>
+                            <option value="장기 계획 개선">장기 계획 개선 📋</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 서명란 및 확인 일시 -->
+            <div class="mt-8 pt-6 border-t border-slate-300 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+                <div>위 점검 사항은 당일 일체의 과장 없이 현장 모니터링을 거쳐 정식 등록된 사실임을 보증합니다.</div>
+                <div class="flex items-center gap-4">
+                    <span class="font-bold">안전보건관리담당 주임 서명:</span>
+                    <span class="w-16 h-8 border-b border-slate-400 flex items-center justify-center italic text-slate-400 font-serif text-sm">(인)</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 푸터 (no-print) -->
+    <footer class="bg-slate-100 border-t border-slate-200 py-6 text-center text-xs text-slate-500 no-print">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>본 플랫폼은 건설 안전관리자가 업로드한 고용량 사진의 초경량 압축 기능 및 Gemini 2.5 Flash 원격 분석을 무상 지원합니다.</p>
+            <p class="mt-1">© 2026 AI 건설안전 어시스턴트 서비스 - Built with Modern Web Technology</p>
+        </div>
+    </footer>
+
+    <!-- 알림창 컴포넌트 -->
+    <div id="custom-alert" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 class="text-lg font-bold text-slate-900 mb-2" id="alert-title">알림</h3>
+            <p class="text-sm text-slate-600 mb-4" id="alert-message">내용</p>
+            <button onclick="closeAlert()" class="w-full py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-bold">확인</button>
+        </div>
+    </div>
+
+    <!-- 스크립트 로직 -->
+    <script>
+        // 전역 상태 변수들
+        const apiKey = ""; // Canvas 환경에서 자동 주입됨
+        let uploadedImageBase64 = null;
+        let originalFileName = "";
+
+        // 페이지 로드 시 기본 날짜 당일 자동 설정
+        window.addEventListener('load', () => {
+            const dateInput = document.getElementById('report-date');
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+            calculateRisk(); // 초기 위험성 계산값 업데이트
+        });
+
+        // 커스텀 메시지 모달 (Alert 대용)
+        function showAlert(title, message) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-message').innerText = message;
+            document.getElementById('custom-alert').classList.remove('hidden');
+            document.getElementById('custom-alert').classList.add('flex');
+        }
+
+        function closeAlert() {
+            document.getElementById('custom-alert').classList.add('hidden');
+            document.getElementById('custom-alert').classList.remove('flex');
+        }
+
+        // 이미지 파일 처리 및 자동 리사이징/압축
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            originalFileName = file.name;
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Canvas 활용 고속 압축 비율 설정
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // 최대 너비 800px 기준으로 화질을 보존하면서 용량을 대폭 줄임
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // JPEG 형태로 압축하여 인코딩 진행
+                    const quality = 0.75; // 모바일 데이터 절감 및 최상의 밸런스 설정
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    
+                    uploadedImageBase64 = compressedDataUrl.split(',')[1]; // 헤더 제거 후 순수 Base64 저장
+
+                    // 업로드 크기 및 압축률 표시
+                    const origSizeKB = Math.round(file.size / 1024);
+                    const compSizeKB = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+
+                    document.getElementById('orig-size').innerText = origSizeKB + "KB";
+                    document.getElementById('compressed-size').innerText = compSizeKB + "KB (압축완료)";
+                    document.getElementById('compression-info').classList.remove('hidden');
+
+                    // 좌측 UI 프리뷰 적용
+                    document.getElementById('image-preview').src = compressedDataUrl;
+                    document.getElementById('image-preview-container').classList.remove('hidden');
+
+                    // 우측 보고서용 양식 프리뷰 동기화 배치
+                    document.getElementById('form-image-preview').src = compressedDataUrl;
+                    document.getElementById('form-image-placeholder-text').classList.add('hidden');
+
+                    // AI 분석 활성화 전환
+                    const btnAnalyze = document.getElementById('btn-analyze');
+                    btnAnalyze.removeAttribute('disabled');
+                    btnAnalyze.className = "w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow cursor-pointer";
+                    document.getElementById('analyze-btn-text').innerText = "AI로 이 사진 자동 분석하기";
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 첨부 사진 지우기
+        function removeImage() {
+            uploadedImageBase64 = null;
+            document.getElementById('image-upload').value = '';
+            document.getElementById('image-preview-container').classList.add('hidden');
+            document.getElementById('compression-info').classList.add('hidden');
+            
+            // 우측 프리뷰 기본 상태로 원복
+            document.getElementById('form-image-preview').src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'/><circle cx='8.5' cy='8.5' r='1.5'/><polyline points='21 15 16 10 5 21'/></svg>";
+            document.getElementById('form-image-placeholder-text').classList.remove('hidden');
+
+            const btnAnalyze = document.getElementById('btn-analyze');
+            btnAnalyze.setAttribute('disabled', 'true');
+            btnAnalyze.className = "w-full py-3 px-4 bg-slate-200 text-slate-400 cursor-not-allowed font-bold rounded-xl transition-all flex items-center justify-center gap-2";
+            document.getElementById('analyze-btn-text').innerText = "사진 올리고 AI 분석하기";
+        }
+
+        // 위험성 평가 자동 연산 도구
+        function calculateRisk() {
+            const likelihood = parseInt(document.getElementById('risk-likelihood').value);
+            const severity = parseInt(document.getElementById('risk-severity').value);
+            const score = likelihood * severity;
+
+            const scoreBadge = document.getElementById('risk-score-badge');
+            const colorInd = document.getElementById('risk-color-indicator');
+            const resText = document.getElementById('risk-result-text');
+            const formRiskLevel = document.getElementById('form-risk-level');
+
+            colorInd.innerText = score;
+            scoreBadge.innerText = score + "점";
+
+            let level = "";
+            let colorClass = "";
+            let textClass = "";
+
+            if (score >= 15) {
+                level = "치명적 중대위험 (즉시 작업중단)";
+                colorClass = "bg-red-600 text-white";
+                textClass = "text-red-600 font-extrabold";
+                document.getElementById('form-urgency').value = "즉각 조치 (24시간 내)";
+            } else if (score >= 8) {
+                level = "보통 위험 (경계 필요)";
+                colorClass = "bg-amber-500 text-slate-900";
+                textClass = "text-amber-600 font-bold";
+            } else {
+                level = "안전 구역 (일상 관리)";
+                colorClass = "bg-green-600 text-white";
+                textClass = "text-green-600 font-medium";
+            }
+
+            resText.innerText = level;
+            colorInd.className = `w-10 h-10 rounded-lg flex items-center justify-center font-black text-sm ${colorClass}`;
+            formRiskLevel.value = `${level} - 총 ${score}점`;
+        }
+
+        // 지수적 백오프 처리 적용 API 통신 (최대 5회)
+        async function fetchWithBackoff(url, options, retries = 5, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) return await response.json();
+                
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                throw new Error("서버와의 연결이 지연되고 있습니다. 잠시 후 인쇄 버튼을 통해 수동 작성해 보세요.");
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                throw error;
+            }
+        }
+
+        // Gemini 2.5 Flash API 활용 AI 분석
+        async function analyzeConstructionSite() {
+            if (!uploadedImageBase64) {
+                showAlert("안내", "분석할 건설현장 사진을 먼저 업로드해 주세요.");
+                return;
+            }
+
+            const btnAnalyze = document.getElementById('btn-analyze');
+            const originalText = document.getElementById('analyze-btn-text').innerText;
+            
+            // 버튼 상태 대기 상태로 고정
+            btnAnalyze.setAttribute('disabled', 'true');
+            btnAnalyze.className = "w-full py-3 px-4 bg-slate-800 text-amber-500 font-bold rounded-xl flex items-center justify-center gap-2 cursor-wait shadow-inner";
+            document.getElementById('analyze-btn-text').innerText = "AI 위성 요인 정밀 분석 중...";
+
+            const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `
+                너는 최고 수준의 20년 경력 대한민국 건설현장 안전보건관리 감독 에이전트다. 
+                첨부된 건설현장 사진을 냉정하게 관찰 분석하여 안전보건상 위험요인, 법규 위반 사항을 추적하라. 
+                반드시 아래 JSON 포맷을 엄격하게 지켜 결과를 내놓아야 한다. JSON 외에 인트로 글귀, 사과글, 백틱 마크 등 어떤 다른 텍스트도 넣지 말아라.
+
+                출력 JSON 스키마 규격:
+                {
+                  "hazardTitle": "대표적 위험요인 헤드라인 1줄 요약",
+                  "hazardCategory": "추락 (떨어짐)", "낙하·비래 (맞음)", "붕괴·도괴 (무너짐)", "협착·끼임", "질식·중독 (공기질)", "전도·감전", "기타 유해환경" 중 반드시 택1,
+                  "description": "사진에서 포착된 위험의 물리적 환경이나 근로자 행태에 관한 정밀 디테일 3줄 요약 설명",
+                  "legalViolation": "대한민국 산업안전보건법 및 관련 안전보건기준에 관한 규칙 위반 소지가 다분한 법률 조항 및 구체적인 기술 규격 설명",
+                  "correctiveAction": "현장에서 즉각 지체없이 실행 가능한 실무적 위험통제 조치 및 항구적 재발 방지 대책 지침 설명",
+                  "likelihood": 1~5 정수값, (대표적 위험이 발생할 확률)
+                  "severity": 1~5 정수값, (사고 시 상해 규모 수준)
+                  "urgency": "즉각 조치 (24시간 내)" 혹은 "주의/개선 권고" 혹은 "장기 계획 개선" 중 반드시 택1
+                }
+            `;
+
+            const userQuery = "위 사진 속 인물, 시설, 지면, 보호장비 등을 세밀히 분석하여 건설현장 안전보고서 완성용 데이터를 구조적 JSON 포맷으로 생성하라.";
+
+            const payload = {
+                contents: [
+                    {
+                        parts: [
+                            { text: userQuery },
+                            {
+                                inlineData: {
+                                    mimeType: "image/jpeg",
+                                    data: uploadedImageBase64
+                                }
+                            }
+                        ]
+                    }
+                ],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
+            };
+
+            try {
+                const responseData = await fetchWithBackoff(apiEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const rawTextResponse = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawTextResponse) {
+                    throw new Error("AI 분석 데이터 획득 실패");
+                }
+
+                // JSON 파싱 후 우측 보고서 양식 폼에 적용
+                const parsedResult = JSON.parse(rawTextResponse.trim());
+
+                document.getElementById('form-hazard-title').value = parsedResult.hazardTitle || "";
+                document.getElementById('form-hazard-description').value = parsedResult.description || "";
+                document.getElementById('form-legal-violation').value = parsedResult.legalViolation || "";
+                document.getElementById('form-corrective-action').value = parsedResult.correctiveAction || "";
+                document.getElementById('form-hazard-category').value = parsedResult.hazardCategory || "추락 (떨어짐)";
+                document.getElementById('form-urgency').value = parsedResult.urgency || "즉각 조치 (24시간 내)";
+
+                // 위험 점수 갱신 연산
+                document.getElementById('risk-likelihood').value = parsedResult.likelihood || 3;
+                document.getElementById('risk-severity').value = parsedResult.severity || 3;
+                calculateRisk();
+
+                showAlert("완료", "AI 정밀 사진 분석이 완료되었습니다! 안전보건보고서 내용이 즉각 작성 배치되었습니다.");
+
+            } catch (error) {
+                console.error(error);
+                showAlert("오류", "사진 분석 처리 중 문제가 발생했습니다. 브라우저 인쇄 기능을 활용해 보고서를 수동으로 기재하시기 바랍니다.");
+            } finally {
+                // 버튼 복구
+                btnAnalyze.removeAttribute('disabled');
+                btnAnalyze.className = "w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow cursor-pointer";
+                document.getElementById('analyze-btn-text').innerText = originalText;
+            }
+        }
+    </script>
+</body>
+</html>
